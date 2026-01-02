@@ -2,9 +2,9 @@ import User from "../models/User.js";
 import Notification from "../models/Notification.js";
 import Activity from "../models/Activity.js";
 
-// @desc    Send a friend request
-// @route   POST /api/friends/request/:targetId
-// @access  Private
+// -----------------------------------------------------
+// Send a friend request
+// -----------------------------------------------------
 export const sendFriendRequest = async (req, res) => {
   try {
     const { targetId } = req.params;
@@ -16,29 +16,24 @@ export const sendFriendRequest = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // Already friends?
     if (sender.friends.includes(targetId)) {
       return res.status(400).json({ message: "Already friends" });
     }
 
-    // Already sent?
     if (sender.sentRequests.includes(targetId)) {
       return res.status(400).json({ message: "Request already sent" });
     }
 
-    // Already received?
     if (sender.friendRequests.includes(targetId)) {
       return res.status(400).json({ message: "User already sent you a request" });
     }
 
-    // Add request
     sender.sentRequests.push(targetId);
     target.friendRequests.push(sender._id);
 
     await sender.save();
     await target.save();
 
-    // ⭐ Notification
     await Notification.create({
       user: targetId,
       sender: req.user._id,
@@ -46,7 +41,6 @@ export const sendFriendRequest = async (req, res) => {
       message: `${sender.username} sent you a friend request`,
     });
 
-    // ⭐ Activity
     await Activity.create({
       user: req.user._id,
       type: "friend_request",
@@ -61,9 +55,9 @@ export const sendFriendRequest = async (req, res) => {
   }
 };
 
-// @desc    Accept a friend request
-// @route   POST /api/friends/accept/:requesterId
-// @access  Private
+// -----------------------------------------------------
+// Accept a friend request
+// -----------------------------------------------------
 export const acceptFriendRequest = async (req, res) => {
   try {
     const { requesterId } = req.params;
@@ -75,23 +69,19 @@ export const acceptFriendRequest = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // Ensure request exists
     if (!user.friendRequests.includes(requesterId)) {
       return res.status(400).json({ message: "No friend request from this user" });
     }
 
-    // Add each other as friends
     user.friends.push(requesterId);
     requester.friends.push(req.user._id);
 
-    // Remove pending requests
     user.friendRequests = user.friendRequests.filter(id => id.toString() !== requesterId);
     requester.sentRequests = requester.sentRequests.filter(id => id.toString() !== req.user._id);
 
     await user.save();
     await requester.save();
 
-    // ⭐ Notification
     await Notification.create({
       user: requesterId,
       sender: req.user._id,
@@ -99,7 +89,6 @@ export const acceptFriendRequest = async (req, res) => {
       message: `${user.username} accepted your friend request`,
     });
 
-    // ⭐ Activity
     await Activity.create({
       user: req.user._id,
       type: "friend_accept",
@@ -114,9 +103,48 @@ export const acceptFriendRequest = async (req, res) => {
   }
 };
 
-// @desc    Remove a friend
-// @route   DELETE /api/friends/remove/:friendId
-// @access  Private
+// -----------------------------------------------------
+// Reject a friend request (MISSING FUNCTION — now added)
+// -----------------------------------------------------
+export const rejectFriendRequest = async (req, res) => {
+  try {
+    const { requesterId } = req.params;
+
+    const user = await User.findById(req.user._id);
+    const requester = await User.findById(requesterId);
+
+    if (!requester) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    if (!user.friendRequests.includes(requesterId)) {
+      return res.status(400).json({ message: "No friend request from this user" });
+    }
+
+    // Remove pending request
+    user.friendRequests = user.friendRequests.filter(id => id.toString() !== requesterId);
+    requester.sentRequests = requester.sentRequests.filter(id => id.toString() !== req.user._id);
+
+    await user.save();
+    await requester.save();
+
+    await Notification.create({
+      user: requesterId,
+      sender: req.user._id,
+      type: "friend_reject",
+      message: `${user.username} rejected your friend request`,
+    });
+
+    return res.json({ message: "Friend request rejected" });
+  } catch (error) {
+    console.error("Reject friend request error:", error.message);
+    return res.status(500).json({ message: "Server error rejecting friend request" });
+  }
+};
+
+// -----------------------------------------------------
+// Remove a friend
+// -----------------------------------------------------
 export const removeFriend = async (req, res) => {
   try {
     const { friendId } = req.params;
@@ -128,7 +156,6 @@ export const removeFriend = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // Remove each other
     user.friends = user.friends.filter(id => id.toString() !== friendId);
     friend.friends = friend.friends.filter(id => id.toString() !== req.user._id);
 
