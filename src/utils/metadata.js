@@ -1,21 +1,14 @@
-import mm from "music-metadata";
+import * as mm from "music-metadata";
 import fs from "fs";
 
-export const extractAudioMetadata = async (filePath) => {
+export const getAudioMetadata = async (filePath) => {
   try {
-    const metadata = await mm.parseFile(filePath);
-
-    return {
-      title: metadata.common.title || "",
-      duration: metadata.format.duration || 0,
-      bitrate: metadata.format.bitrate || 0,
-    };
+    const stream = fs.createReadStream(filePath);
+    const metadata = await mm.parseStream(stream);
+    stream.close();
+    return metadata;
   } catch (error) {
-    console.error("Metadata extraction error:", error.message);
-    return {
-      title: "",
-      duration: 0,
-      bitrate: 0,
-    };
+    console.error("Metadata error:", error);
+    return null;
   }
 };
