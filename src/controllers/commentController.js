@@ -1,95 +1,105 @@
 import Comment from "../models/Comment.js";
 import User from "../models/User.js";
-import Notification from "../models/Notification.js";
-import Activity from "../models/Activity.js";
 
-// @desc    Post a comment on a user's profile
-// @route   POST /api/comments/:profileOwnerId
-// @access  Private
-export const createComment = async (req, res) => {
+// -----------------------------------------------------
+// Get all comments for a specific user (PUBLIC)
+// -----------------------------------------------------
+export const getCommentsForUser = async (req, res) => {
   try {
-    const { profileOwnerId } = req.params;
+    const { userId } = req.params;
+
+    const comments = await Comment.find({ targetUser: userId })
+      .populate("author", "username profilePicture")
+      .sort({ createdAt: -1 });
+
+    res.status(200).json(comments);
+  } catch (error) {
+    res.status(500).json({
+      message: "Error fetching comments for user",
+      error: error.message,
+    });
+  }
+};
+
+// -----------------------------------------------------
+// Post a comment on a user's profile (PRIVATE)
+// -----------------------------------------------------
+export const postComment = async (req, res) => {
+  try {
+    const { targetUserId } = req.params;
     const { text } = req.body;
 
-    const profileOwner = await User.findById(profileOwnerId);
-    if (!profileOwner) {
-      return res.status(404).json({ message: "Profile owner not found" });
-    }
-
-    // Create comment
-    const comment = await Comment.create({
-      author: req.user._id,
-      profileOwner: profileOwnerId,
+    const newComment = await Comment.create({
+      author: req.user.id,
+      targetUser: targetUserId,
       text,
     });
 
-    // ⭐ Notification: profile owner gets notified
-    await Notification.create({
-      user: profileOwnerId,
-      sender: req.user._id,
-      type: "comment",
-      message: `${req.user.username} commented on your profile`,
-    });
-
-    // ⭐ Activity: comment posted
-    await Activity.create({
-      user: req.user._id,
-      type: "comment",
-      message: `${req.user.username} left a new comment`,
-      metadata: { profileOwnerId },
-    });
-
-    return res.status(201).json(comment);
+    res.status(201).json(newComment);
   } catch (error) {
-    console.error("Create comment error:", error.message);
-    return res.status(500).json({ message: "Server error posting comment" });
+    res.status(500).json({
+      message: "Error posting comment",
+      error: error.message,
+    });
   }
 };
 
-// @desc    Get comments for a user's profile
-// @route   GET /api/comments/:profileOwnerId
-// @access  Public
-export const getComments = async (req, res) => {
+// -----------------------------------------------------
+// Reply to a comment (PRIVATE)
+// -----------------------------------------------------
+export const replyToComment = async (req, res) => {
   try {
-    const { profileOwnerId } = req.params;
+    const { commentId } = req.params;
+    const { text } = req.body;
 
-    const comments = await Comment.find({ profileOwner: profileOwnerId })
-      .populate("author", "username avatar")
-      .sort({ createdAt: -1 });
+    const parentComment = await Comment.findById(commentId);
+    if (!parentComment) {
+      return res.status(404).json({ message: "Comment not found" });
+    }
 
-    return res.json(comments);
+    const reply = await Comment.create({
+      author: req.user.id,
+      targetUser: parentComment.targetUser,
+      text,
+      parentComment: commentId,
+    });
+
+    res.status(201).json(reply);
   } catch (error) {
-    console.error("Get comments error:", error.message);
-    return res.status(500).json({ message: "Server error fetching comments" });
+    res.status(500).json({
+      message: "Error replying to comment",
+      error: error.message,
+    });
   }
 };
 
-// @desc    Delete a comment
-// @route   DELETE /api/comments/:commentId
-// @access  Private
+// -----------------------------------------------------
+// Delete a comment (PRIVATE)
+// -----------------------------------------------------
 export const deleteComment = async (req, res) => {
   try {
     const { commentId } = req.params;
 
     const comment = await Comment.findById(commentId);
-
     if (!comment) {
       return res.status(404).json({ message: "Comment not found" });
     }
 
-    // Only author or profile owner can delete
+    // Only author or target user can delete
     if (
-      comment.author.toString() !== req.user._id &&
-      comment.profileOwner.toString() !== req.user._id
+      comment.author.toString() !== req.user.id &&
+      comment.targetUser.toString() !== req.user.id
     ) {
-      return res.status(403).json({ message: "Not authorized to delete this comment" });
+      return res.status(403).json({ message: "Not authorized to delete" });
     }
 
     await comment.deleteOne();
 
-    return res.json({ message: "Comment deleted" });
+    res.status(200).json({ message: "Comment deleted" });
   } catch (error) {
-    console.error("Delete comment error:", error.message);
-    return res.status(500).json({ message: "Server error deleting comment" });
+    res.status(500).json({
+      message: "Error deleting comment",
+      error: error.message,
+    });
   }
 };
