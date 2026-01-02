@@ -2,11 +2,11 @@
   "name": "vibespace-backend",
   "version": "1.0.0",
   "main": "server.js",
-"scripts": {
-"start": "node server.js",
-"dev": "nodemon server.js"
-},
-"keywords": [],
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "keywords": [],
   "author": "",
   "license": "ISC",
   "description": "",
@@ -17,7 +17,8 @@
     "express": "^5.2.1",
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.1.1",
-    "multer": "^2.0.2"
+    "multer": "^2.0.2",
+    "music-metadata": "^11.10.4"
   },
   "devDependencies": {
     "nodemon": "^3.1.11"
