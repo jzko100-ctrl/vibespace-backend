@@ -58,6 +58,12 @@ const UserSchema = new mongoose.Schema(
       default: null,
     },
 
+    // ⭐ Premium status
+    isPremium: {
+      type: Boolean,
+      default: false,
+    },
+
     // ⭐ Moderation & Admin Flags
 isAdmin: {
   type: Boolean,
